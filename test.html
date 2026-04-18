@@ -1,0 +1,466 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans, sans-serif); background: transparent; color: var(--color-text-primary); }
+
+  h2.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+  .app { display: flex; flex-direction: column; gap: 12px; padding: 12px 0; user-select: none; }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    padding: 8px 12px;
+  }
+  .toolbar-title {
+    font-size: 13px; font-weight: 500; color: var(--color-text-secondary);
+    letter-spacing: 0.04em;
+    margin-right: 4px;
+  }
+  .tool-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border-radius: 6px;
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    border: 0.5px solid var(--color-border-secondary);
+    background: transparent; color: var(--color-text-primary);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .tool-btn:hover { background: var(--color-background-secondary); }
+  .tool-btn.active {
+    background: var(--color-background-info);
+    border-color: var(--color-border-info);
+    color: var(--color-text-info);
+  }
+  .tool-btn.run-btn {
+    background: var(--color-background-success);
+    border-color: var(--color-border-success);
+    color: var(--color-text-success);
+    font-weight: 500;
+  }
+  .tool-btn.run-btn:hover { opacity: 0.85; }
+  .tool-btn.run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .tool-btn.danger { color: var(--color-text-danger); border-color: var(--color-border-danger); }
+  .tool-btn.danger:hover { background: var(--color-background-danger); }
+
+  select.algo-select {
+    padding: 5px 8px; border-radius: 6px; font-size: 12px;
+    border: 0.5px solid var(--color-border-secondary);
+    background: var(--color-background-secondary);
+    color: var(--color-text-primary);
+    cursor: pointer;
+  }
+
+  .sep { width: 0.5px; height: 20px; background: var(--color-border-tertiary); margin: 0 2px; }
+
+  .status-bar {
+    font-size: 11px; color: var(--color-text-secondary);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 4px 0 0;
+  }
+  .stat-pill {
+    padding: 2px 8px; border-radius: 99px;
+    background: var(--color-background-secondary);
+    border: 0.5px solid var(--color-border-tertiary);
+    font-size: 11px;
+  }
+  .stat-pill.success { background: var(--color-background-success); color: var(--color-text-success); border-color: var(--color-border-success); }
+  .stat-pill.danger { background: var(--color-background-danger); color: var(--color-text-danger); border-color: var(--color-border-danger); }
+
+  .grid-wrap {
+    overflow: auto;
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    padding: 10px;
+  }
+  .grid {
+    display: grid;
+    gap: 1px;
+    cursor: crosshair;
+    width: fit-content;
+  }
+  .cell {
+    width: 30px; height: 30px;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 500;
+    border: 0.5px solid var(--color-border-tertiary);
+    transition: background 0.08s;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .cell:hover { filter: brightness(1.12); }
+  .cell.empty { background: var(--color-background-secondary); }
+  .cell.wall { background: var(--color-text-primary); opacity: 0.85; border-color: transparent; }
+  .cell.start { background: #2ea043; border-color: #2ea043; color: #fff; font-size: 11px; }
+  .cell.end { background: #e45c3a; border-color: #e45c3a; color: #fff; font-size: 11px; }
+  .cell.visited { background: var(--color-background-info); border-color: var(--color-border-info); }
+  .cell.path { background: var(--color-text-info); border-color: var(--color-border-info); }
+  .cell.robot { z-index: 2; }
+
+  .robot-dot {
+    position: absolute; inset: 3px;
+    background: #f0a800;
+    border-radius: 50%;
+    border: 1.5px solid #fff3;
+    box-shadow: 0 0 6px #f0a80088;
+    pointer-events: none;
+    transition: none;
+  }
+
+  .legend {
+    display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+    font-size: 11px; color: var(--color-text-secondary);
+    padding: 2px 0;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-swatch {
+    width: 12px; height: 12px; border-radius: 2px;
+    border: 0.5px solid var(--color-border-secondary);
+    flex-shrink: 0;
+  }
+
+  .hint {
+    font-size: 11px; color: var(--color-text-tertiary);
+    padding: 2px 0;
+  }
+</style>
+</head>
+<body>
+<h2 class="sr-only">Pathfinding visualizer — draw walls and watch BFS or DFS find the shortest path</h2>
+<div class="app" id="app"></div>
+
+<script>
+const ROWS = 14, COLS = 22;
+const CELL_EMPTY = 0, CELL_WALL = 1, CELL_START = 2, CELL_END = 3;
+const CELL_VISITED = 4, CELL_PATH = 5;
+
+let grid = [];
+let startPos = [2, 1];
+let endPos = [11, 20];
+let algorithm = 'bfs';
+let isAnimating = false;
+let isDrawing = false;
+let drawMode = null; // 'add' or 'remove'
+let dragging = null; // 'start' | 'end' | null
+let robotPos = [2, 1];
+let visitedCount = 0, pathLength = 0, lastStatus = '';
+
+function initGrid() {
+  grid = Array.from({length: ROWS}, () => Array(COLS).fill(CELL_EMPTY));
+}
+
+function cellClass(r, c) {
+  if (r === robotPos[0] && c === robotPos[1] && isAnimating) return 'cell robot';
+  if (r === startPos[0] && c === startPos[1]) return 'cell start';
+  if (r === endPos[0] && c === endPos[1]) return 'cell end';
+  if (grid[r][c] === CELL_PATH) return 'cell path';
+  if (grid[r][c] === CELL_VISITED) return 'cell visited';
+  if (grid[r][c] === CELL_WALL) return 'cell wall';
+  return 'cell empty';
+}
+
+function cellLabel(r, c) {
+  if (r === startPos[0] && c === startPos[1]) return 'S';
+  if (r === endPos[0] && c === endPos[1]) return 'T';
+  return '';
+}
+
+function render() {
+  const app = document.getElementById('app');
+  const gridHTML = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cls = cellClass(r, c);
+      const lbl = cellLabel(r, c);
+      const isRobot = r === robotPos[0] && c === robotPos[1] && isAnimating;
+      gridHTML.push(`<div class="${cls}" data-r="${r}" data-c="${c}">${lbl}${isRobot ? '<div class="robot-dot"></div>' : ''}</div>`);
+    }
+  }
+
+  app.innerHTML = `
+    <div class="toolbar">
+      <span class="toolbar-title">Algorithm</span>
+      <select class="algo-select" id="algo-select" onchange="algorithm=this.value">
+        <option value="bfs"${algorithm==='bfs'?' selected':''}>BFS (shortest)</option>
+        <option value="dfs"${algorithm==='dfs'?' selected':''}>DFS (explore)</option>
+        <option value="astar"${algorithm==='astar'?' selected':''}>A* (heuristic)</option>
+      </select>
+      <div class="sep"></div>
+      <button class="tool-btn run-btn" id="run-btn" onclick="runAlgo()" ${isAnimating?'disabled':''}>▶ Run</button>
+      <button class="tool-btn" onclick="clearVisited()" ${isAnimating?'disabled':''}>Clear path</button>
+      <button class="tool-btn danger" onclick="resetAll()" ${isAnimating?'disabled':''}>Reset</button>
+    </div>
+
+    <div class="hint">
+      🖱 <strong>Click + drag</strong> to draw/erase walls &nbsp;·&nbsp;
+      <strong>Drag S/T</strong> to move start/end
+    </div>
+
+    <div class="grid-wrap">
+      <div class="grid" id="grid"
+        style="grid-template-columns: repeat(${COLS}, 30px);"
+        onmousedown="onGridMouseDown(event)"
+        onmouseover="onGridMouseOver(event)"
+        onmouseleave="onMouseUp()"
+      >${gridHTML.join('')}</div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:#2ea043;border-color:#2ea043"></div> Start</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#e45c3a;border-color:#e45c3a"></div> Target</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--color-text-primary);opacity:.85"></div> Wall</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--color-background-info);border-color:var(--color-border-info)"></div> Visited</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--color-text-info);border-color:var(--color-border-info)"></div> Path</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#f0a800;border-color:#f0a80088"></div> Agent</div>
+    </div>
+
+    <div class="status-bar" id="status-bar">
+      ${lastStatus}
+    </div>
+  `;
+}
+
+function getCell(e) {
+  const el = e.target.closest('[data-r]');
+  if (!el) return null;
+  return [+el.dataset.r, +el.dataset.c];
+}
+
+function onGridMouseDown(e) {
+  if (isAnimating) return;
+  e.preventDefault();
+  const pos = getCell(e);
+  if (!pos) return;
+  const [r, c] = pos;
+  if (r === startPos[0] && c === startPos[1]) { dragging = 'start'; return; }
+  if (r === endPos[0] && c === endPos[1]) { dragging = 'end'; return; }
+  drawMode = grid[r][c] === CELL_WALL ? 'remove' : 'add';
+  isDrawing = true;
+  setWall(r, c);
+}
+
+function onGridMouseOver(e) {
+  if (isAnimating) return;
+  const pos = getCell(e);
+  if (!pos) return;
+  const [r, c] = pos;
+  if (dragging === 'start') {
+    if (!(r === endPos[0] && c === endPos[1]) && grid[r][c] !== CELL_WALL) {
+      startPos = [r, c];
+      clearVisited(false);
+      render();
+    }
+    return;
+  }
+  if (dragging === 'end') {
+    if (!(r === startPos[0] && c === startPos[1]) && grid[r][c] !== CELL_WALL) {
+      endPos = [r, c];
+      clearVisited(false);
+      render();
+    }
+    return;
+  }
+  if (!isDrawing) return;
+  if (r === startPos[0] && c === startPos[1]) return;
+  if (r === endPos[0] && c === endPos[1]) return;
+  setWall(r, c);
+}
+
+function setWall(r, c) {
+  grid[r][c] = drawMode === 'add' ? CELL_WALL : CELL_EMPTY;
+  const el = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+  if (el) {
+    el.className = cellClass(r, c);
+    el.textContent = cellLabel(r, c);
+  }
+}
+
+function onMouseUp() { isDrawing = false; dragging = null; }
+document.addEventListener('mouseup', onMouseUp);
+
+function clearVisited(rerender=true) {
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (grid[r][c] === CELL_VISITED || grid[r][c] === CELL_PATH)
+        grid[r][c] = CELL_EMPTY;
+  visitedCount = 0; pathLength = 0; lastStatus = '';
+  robotPos = [...startPos];
+  if (rerender) render();
+}
+
+function resetAll() {
+  initGrid();
+  startPos = [2, 1]; endPos = [11, 20];
+  robotPos = [2, 1];
+  visitedCount = 0; pathLength = 0; lastStatus = '';
+  render();
+}
+
+// --- BFS ---
+function bfs() {
+  const visited = Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  const parent = Array.from({length:ROWS},()=>Array(COLS).fill(null));
+  const queue = [[...startPos]];
+  visited[startPos[0]][startPos[1]] = true;
+  const order = [];
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+  while (queue.length) {
+    const [r,c] = queue.shift();
+    order.push([r,c]);
+    if (r===endPos[0]&&c===endPos[1]) {
+      const path = [];
+      let cur=[r,c];
+      while (cur) { path.unshift(cur); cur=parent[cur[0]][cur[1]]; }
+      return {order, path};
+    }
+    for (const [dr,dc] of dirs) {
+      const nr=r+dr, nc=c+dc;
+      if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&!visited[nr][nc]&&grid[nr][nc]!==CELL_WALL) {
+        visited[nr][nc]=true;
+        parent[nr][nc]=[r,c];
+        queue.push([nr,nc]);
+      }
+    }
+  }
+  return {order, path:[]};
+}
+
+// --- DFS ---
+function dfs() {
+  const visited = Array.from({length:ROWS},()=>Array(COLS).fill(false));
+  const parent = Array.from({length:ROWS},()=>Array(COLS).fill(null));
+  const order = [];
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+  let found = false;
+  function go(r,c) {
+    if (found) return;
+    visited[r][c]=true;
+    order.push([r,c]);
+    if (r===endPos[0]&&c===endPos[1]) { found=true; return; }
+    for (const [dr,dc] of dirs) {
+      const nr=r+dr, nc=c+dc;
+      if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&!visited[nr][nc]&&grid[nr][nc]!==CELL_WALL) {
+        parent[nr][nc]=[r,c];
+        go(nr,nc);
+      }
+    }
+  }
+  go(startPos[0],startPos[1]);
+  const path=[];
+  if (found) {
+    let cur=[...endPos];
+    while (cur) { path.unshift(cur); cur=parent[cur[0]][cur[1]]; }
+  }
+  return {order, path};
+}
+
+// --- A* ---
+function astar() {
+  const h=(r,c)=>Math.abs(r-endPos[0])+Math.abs(c-endPos[1]);
+  const g = Array.from({length:ROWS},()=>Array(COLS).fill(Infinity));
+  const parent = Array.from({length:ROWS},()=>Array(COLS).fill(null));
+  g[startPos[0]][startPos[1]]=0;
+  const open=[[h(startPos[0],startPos[1]),0,...startPos]];
+  const order=[];
+  const dirs=[[-1,0],[1,0],[0,-1],[0,1]];
+  while (open.length) {
+    open.sort((a,b)=>a[0]-b[0]);
+    const [,gc,r,c]=open.shift();
+    if (gc>g[r][c]) continue;
+    order.push([r,c]);
+    if (r===endPos[0]&&c===endPos[1]) {
+      const path=[];
+      let cur=[r,c];
+      while(cur){path.unshift(cur);cur=parent[cur[0]][cur[1]];}
+      return {order,path};
+    }
+    for (const [dr,dc] of dirs) {
+      const nr=r+dr,nc=c+dc;
+      if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&grid[nr][nc]!==CELL_WALL) {
+        const ng=gc+1;
+        if (ng<g[nr][nc]) {
+          g[nr][nc]=ng;
+          parent[nr][nc]=[r,c];
+          open.push([ng+h(nr,nc),ng,nr,nc]);
+        }
+      }
+    }
+  }
+  return {order,path:[]};
+}
+
+async function runAlgo() {
+  clearVisited(false);
+  isAnimating = true;
+  render();
+
+  const {order, path} = algorithm==='dfs' ? dfs() : algorithm==='astar' ? astar() : bfs();
+
+  const VISIT_DELAY = 18, PATH_DELAY = 45;
+
+  for (let i = 0; i < order.length; i++) {
+    const [r,c] = order[i];
+    if ((r===startPos[0]&&c===startPos[1])||(r===endPos[0]&&c===endPos[1])) continue;
+    grid[r][c] = CELL_VISITED;
+    robotPos = [r,c];
+    const el = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+    if (el) { el.className = 'cell visited'; el.innerHTML = ''; }
+    updateRobot();
+    await sleep(VISIT_DELAY);
+  }
+
+  visitedCount = order.length;
+
+  if (path.length) {
+    for (let i = 0; i < path.length; i++) {
+      const [r,c] = path[i];
+      if ((r===startPos[0]&&c===startPos[1])||(r===endPos[0]&&c===endPos[1])) continue;
+      grid[r][c] = CELL_PATH;
+      robotPos = [r,c];
+      const el = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+      if (el) { el.className = 'cell path'; el.innerHTML = ''; }
+      updateRobot();
+      await sleep(PATH_DELAY);
+    }
+    pathLength = path.length;
+    lastStatus = `<span class="stat-pill success">✓ Path found</span><span class="stat-pill">Visited: ${visitedCount}</span><span class="stat-pill">Path length: ${pathLength}</span>`;
+  } else {
+    lastStatus = `<span class="stat-pill danger">✗ No path</span><span class="stat-pill">Visited: ${visitedCount}</span>`;
+  }
+
+  robotPos = path.length ? path[path.length-1] : startPos;
+  isAnimating = false;
+  render();
+}
+
+function updateRobot() {
+  document.querySelectorAll('.cell.robot').forEach(el => {
+    el.className = el.className.replace(' robot','');
+    el.querySelector('.robot-dot')?.remove();
+  });
+  const [r,c] = robotPos;
+  const el = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+  if (el) {
+    el.classList.add('robot');
+    if (!el.querySelector('.robot-dot')) {
+      const dot = document.createElement('div');
+      dot.className = 'robot-dot';
+      el.appendChild(dot);
+    }
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+initGrid();
+render();
+</script>
+</body>
+</html>

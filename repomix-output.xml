@@ -1,0 +1,1606 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+src/
+  components/
+    Grid.tsx
+    Header.tsx
+    Legend.tsx
+    Sidebar.tsx
+  hooks/
+    usePathfinding.ts
+  services/
+    algorithms.ts
+  App.tsx
+  index.css
+  main.tsx
+  theme.ts
+  types.ts
+.env.example
+.gitignore
+index.html
+metadata.json
+package.json
+README.md
+tsconfig.json
+vite.config.ts
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="src/components/Grid.tsx">
+import React from "react";
+import { Box, Typography, Paper } from "@mui/material";
+import { motion } from "motion/react";
+import { Bot } from "lucide-react";
+import { Point } from "../types";
+
+interface GridProps {
+  grid: number[][];
+  path: Point[];
+  start: Point;
+  end: Point;
+  robotPos: Point;
+  onMouseDown: (r: number, c: number) => void;
+  onMouseEnter: (r: number, c: number) => void;
+  title?: string;
+}
+
+export const Grid: React.FC<GridProps> = ({
+  grid,
+  path,
+  start,
+  end,
+  robotPos,
+  onMouseDown,
+  onMouseEnter,
+  title,
+}) => {
+  const pathSet = React.useMemo(() => {
+    const set = new Set<string>();
+    path.forEach(p => set.add(`${p[0]},${p[1]}`));
+    return set;
+  }, [path]);
+
+  const getCellColor = (
+    val: number,
+    r: number,
+    c: number,
+  ) => {
+    if (r === start[0] && c === start[1]) return "bg-start";
+    if (r === end[0] && c === end[1]) return "bg-target";
+    if (val === 0) return "bg-obstacle";
+    if (pathSet.has(`${r},${c}`))
+      return "border-accent shadow-accent/50 text-accent";
+    return "";
+  };
+
+  const getHeatmapStyle = (
+    val: number,
+    r: number,
+    c: number,
+  ) => {
+    const isPath = pathSet.has(`${r},${c}`);
+    if (isPath)
+      return { backgroundColor: "rgba(59, 130, 246, 0.2)", borderWidth: "2px" };
+    if (val > 1) {
+      const intensity = Math.min(val * 0.05, 0.4);
+      return { backgroundColor: `rgba(59, 130, 246, ${intensity})` };
+    }
+    return {};
+  };
+
+  const handleContainerMouseDown = React.useCallback((e: React.MouseEvent) => {
+    const target = (e.target as HTMLElement).closest('[data-r]');
+    if (!target) return;
+    const r = target.getAttribute('data-r');
+    const c = target.getAttribute('data-c');
+    if (r !== null && c !== null) {
+      onMouseDown(Number(r), Number(c));
+    }
+  }, [onMouseDown]);
+
+  const handleContainerMouseOver = React.useCallback((e: React.MouseEvent) => {
+    const target = (e.target as HTMLElement).closest('[data-r]');
+    if (!target) return;
+    const r = target.getAttribute('data-r');
+    const c = target.getAttribute('data-c');
+    if (r !== null && c !== null) {
+      onMouseEnter(Number(r), Number(c));
+    }
+  }, [onMouseEnter]);
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 2,
+      }}
+    >
+      {title && (
+        <Paper
+          elevation={0}
+          sx={{
+            px: 2,
+            py: 0.5,
+            borderRadius: 10,
+            bgcolor: "primary.main",
+            color: "white",
+          }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 800 }}>
+            {title}
+          </Typography>
+        </Paper>
+      )}
+
+      <Box
+        sx={{
+          p: 1,
+          bgcolor: "background.paper",
+          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "divider",
+          boxShadow: 5,
+        }}
+      >
+        <Box
+          sx={{
+            display: "grid",
+            bgcolor: "divider",
+            border: "2px solid",
+            borderColor: "divider",
+            borderRadius: "4px",
+            overflow: "hidden",
+            gridTemplateColumns: `repeat(${grid[0].length}, var(--cell-size))`,
+            gap: "var(--cell-gap)",
+            position: "relative",
+          }}
+            onMouseOver={handleContainerMouseOver}
+            onMouseDown={handleContainerMouseDown}
+          >
+            {grid.map((row, r) =>
+              row.map((cell, c) => (
+                <Box
+                  key={`${r}-${c}`}
+                  data-r={r}
+                  data-c={c}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: "monospace",
+                  fontSize: { xs: 8, sm: 10 },
+                  transition: "all 0.3s",
+                  cursor: "crosshair",
+                  width: "var(--cell-size)",
+                  height: "var(--cell-size)",
+                  bgcolor: "background.default",
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.05)" },
+                  ...getHeatmapStyle(cell, r, c),
+                }}
+                className={getCellColor(cell, r, c)}
+              >
+                {cell > 1 ? (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minWidth: 16,
+                      padding: "0 4px",
+                      borderRadius: 999,
+                      background: `2px solid ${
+                        r === start[0] && c === start[1]
+                          ? "#22c55e"
+                          : r === end[0] && c === end[1]
+                            ? "#ef4444"
+                            : "#3b82f6"
+                      }`,
+                    }}
+                  >
+                    {cell - 1}
+                  </motion.span>
+                ) : r === start[0] && c === start[1] ? (
+                  "S"
+                ) : r === end[0] && c === end[1] ? (
+                  "T"
+                ) : (
+                  ""
+                )}
+              </Box>
+            )),
+          )}
+
+          {/* Robot Animation */}
+          <motion.div
+            className="absolute z-50 pointer-events-none flex items-center justify-center"
+            style={{
+              width: "var(--cell-size)",
+              height: "var(--cell-size)",
+            }}
+            animate={{
+              top: `calc(${robotPos[0]} * (var(--cell-size) + var(--cell-gap)) + 2px)`,
+              left: `calc(${robotPos[1]} * (var(--cell-size) + var(--cell-gap)) + 2px)`,
+            }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <Box
+              sx={{
+                width: "85%",
+                height: "85%",
+                bgcolor: title?.includes("Pane B") ? "red" : "blue",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: title?.includes("Pane B")
+                  ? "0 0 20px #10b981"
+                  : "0 0 20px #3b82f6",
+                border: "2px solid white",
+                transform: "scale(1.1)",
+              }}
+            >
+              <Bot color="white" size="60%" />
+            </Box>
+          </motion.div>
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+</file>
+
+<file path="src/components/Header.tsx">
+import React from 'react';
+import { 
+  AppBar, 
+  Toolbar, 
+  Typography, 
+  Button, 
+  IconButton, 
+  Box, 
+  Tabs, 
+  Tab, 
+  Divider,
+  CircularProgress
+} from '@mui/material';
+import { 
+  Sun, 
+  Moon, 
+  Play, 
+  Settings2, 
+  Bot 
+} from 'lucide-react';
+import { ThemeMode, Algorithm } from '../types';
+
+interface HeaderProps {
+  theme: ThemeMode;
+  toggleTheme: () => void;
+  isSolving: boolean;
+  isAnimating: boolean;
+  algorithm: Algorithm;
+  handleSolve: () => void;
+  toggleSidebar: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({
+  theme,
+  toggleTheme,
+  isSolving,
+  isAnimating,
+  algorithm,
+  handleSolve,
+  toggleSidebar
+}) => {
+  return (
+    <AppBar 
+      position="static" 
+      elevation={0} 
+      sx={{ 
+        backgroundColor: 'background.paper', 
+        color: 'text.primary',
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        zIndex: (theme) => theme.zIndex.drawer + 1
+      }}
+    >
+      <Toolbar sx={{ justifyContent: 'space-between', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton 
+            onClick={toggleSidebar} 
+            sx={{ display: { lg: 'none' } }}
+            color="inherit"
+          >
+            <Settings2 size={20} />
+          </IconButton>
+          <Typography 
+            variant="h6" 
+            component="div" 
+            sx={{ 
+              fontWeight: 800, 
+              color: 'primary.main',
+              letterSpacing: '-0.02em',
+              display: { xs: 'none', lg: 'flex' },
+              alignItems: 'center',
+              gap: 1
+            }}
+          >
+            NAVIGATOR.AI
+            <Typography 
+              variant="caption" 
+              sx={{ opacity: 0.5, display: { xs: 'none', sm: 'inline' } }}
+            >
+              v2.5.0
+            </Typography>
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
+          <IconButton onClick={toggleTheme} color="inherit" size="small">
+            {theme === 'dark' ? <Sun size={20} color="#f59e0b" /> : <Moon size={20} color="#3b82f6" />}
+          </IconButton>
+
+          <Divider orientation="vertical" flexItem sx={{ my: 2, display: { xs: 'none', md: 'block' } }} />
+
+          <Button
+            variant="contained"
+            color="success"
+            disableElevation
+            onClick={handleSolve}
+            disabled={isSolving || isAnimating}
+            startIcon={isSolving ? <CircularProgress size={16} color="inherit" /> : <Play size={16} fill="currentColor" />}
+            sx={{ 
+              borderRadius: 2,
+              px: { xs: 2, sm: 3 },
+              py: 0.8,
+              backgroundColor: '#10b981',
+              '&:hover': { backgroundColor: '#059669' }
+            }}
+          >
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+              {isSolving ? 'Solving...' : algorithm.toUpperCase()}
+            </Box>
+            <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+               {isSolving ? '' : 'GO'}
+            </Box>
+          </Button>
+        </Box>
+      </Toolbar>
+    </AppBar>
+  );
+};
+</file>
+
+<file path="src/components/Legend.tsx">
+import React from 'react';
+import { Box, Paper, Typography } from '@mui/material';
+
+export const Legend: React.FC = () => {
+  return (
+    <Box sx={{ mt: 'auto', py: 4, width: '100%', display: 'flex', justifyContent: 'center', px: 2, position: 'relative', zIndex: 10 }}>
+      <Paper 
+        elevation={10} 
+        sx={{ 
+          bgcolor: 'background.paper', 
+          border: '1px solid', 
+          borderColor: 'divider', 
+          backdropFilter: 'blur(10px)',
+          px: { xs: 2, sm: 4 }, 
+          py: 1.5, 
+          borderRadius: 10,
+          display: 'flex', 
+          flexWrap: 'wrap', 
+          justifyContent: 'center', 
+          gap: { xs: 2, sm: 4 } 
+        }}
+      >
+        <LegendItem color="bg-start" shadow="#ef4444" label="Start" />
+        <LegendItem color="bg-target" shadow="#22c55e" label="Target" />
+        <LegendItem color="bg-obstacle" label="Wall" border="white/5" />
+        <LegendItem border="var(--color-accent)" shadow="rgba(59,130,246,0.5)" label="Path" isPath />
+      </Paper>
+    </Box>
+  );
+};
+
+const LegendItem: React.FC<{ color?: string; shadow?: string; label: string; border?: string; isPath?: boolean }> = ({ 
+  color, shadow, label, border, isPath 
+}) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+    <Box sx={{ 
+      width: 10, 
+      height: 10, 
+      borderRadius: '2px', 
+      bgcolor: color,
+      border: isPath ? '2px solid' : (border ? '1px solid' : 'none'),
+      borderColor: border,
+      boxShadow: shadow ? `0 0 8px ${shadow}` : 'none'
+    }} />
+    <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary' }}>{label}</Typography>
+  </Box>
+);
+</file>
+
+<file path="src/components/Sidebar.tsx">
+import React from 'react';
+import { 
+  Box, 
+  Typography, 
+  TextField, 
+  Button, 
+  Select, 
+  MenuItem, 
+  FormControl, 
+  InputLabel, 
+  Switch, 
+  FormControlLabel,
+  Paper,
+  Divider
+} from '@mui/material';
+import { 
+  Bot, 
+  Target, 
+  Box as BoxIcon, 
+  Settings2, 
+  Navigation,
+  Trash2,
+  RefreshCw
+} from 'lucide-react';
+import { Algorithm, GridDimensions, Point } from '../types';
+
+interface SidebarProps {
+  gridDim: GridDimensions;
+  updateGridSize: (r: number, c: number) => void;
+  start: Point;
+  updateStart: (r: number, c: number) => void;
+  end: Point;
+  updateEnd: (r: number, c: number) => void;
+  algorithm: Algorithm;
+  setAlgorithm: (a: Algorithm) => void;
+  isComparing: boolean;
+  setIsComparing: (b: boolean) => void;
+  compAlgos: [Algorithm, Algorithm];
+  setCompAlgos: (a: [Algorithm, Algorithm]) => void;
+  handleReset: () => void;
+  clearObstacles: () => void;
+  isAnimating: boolean;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({
+  gridDim, updateGridSize,
+  start, updateStart,
+  end, updateEnd,
+  algorithm, setAlgorithm,
+  isComparing, setIsComparing,
+  compAlgos, setCompAlgos,
+  handleReset, clearObstacles,
+  isAnimating
+}) => {
+  return (
+    <Box sx={{ 
+      p: 2.5, 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: 2.5,
+      height: '100%',
+      overflowY: 'auto',
+      bgcolor: 'background.paper'
+    }}>
+      {/* Mobile Branding */}
+      <Box sx={{ display: { xs: 'flex', lg: 'none' }, alignItems: 'center', gap: 1, mb: 1 }}>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            fontWeight: 800, 
+            color: 'primary.main',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          NAVIGATOR.AI
+        </Typography>
+        <Typography 
+          variant="caption" 
+          sx={{ opacity: 0.5, fontWeight: 700 }}
+        >
+          v2.5.0
+        </Typography>
+      </Box>
+
+      {/* Robot Simulation (Start Point) */}
+      <Box>
+        <SidebarHeader icon={<Bot size={18} />} title="Robot Start (S)" />
+        <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            Initial Mission Coords
+          </Typography>
+          <CoordInputBlock point={start} disabled={isAnimating} onChange={updateStart} />
+        </Paper>
+      </Box>
+
+      {/* Target Simulation (End Point) */}
+      <Box>
+        <SidebarHeader icon={<Target size={18} />} title="Target Objective (T)" />
+        <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            Destination Coords
+          </Typography>
+          <CoordInputBlock point={end} disabled={isAnimating} onChange={updateEnd} />
+        </Paper>
+      </Box>
+
+      {/* Grid Settings */}
+      <Box>
+        <SidebarHeader icon={<BoxIcon size={18} />} title="Grid Dimensions" />
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
+          <Box>
+            <TextField 
+              label="Rows" type="number" size="small" fullWidth
+              value={gridDim.r}
+              onChange={(e) => updateGridSize(Number(e.target.value), gridDim.c)}
+            />
+          </Box>
+          <Box>
+            <TextField 
+              label="Cols" type="number" size="small" fullWidth
+              value={gridDim.c}
+              onChange={(e) => updateGridSize(gridDim.r, Number(e.target.value))}
+            />
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Algorithm Config */}
+      <Box>
+        <SidebarHeader icon={<Navigation size={18} />} title="Algorithm Config" />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <FormControlLabel
+            sx={{ m: 0, mb: 0.5 }}
+            control={<Switch size="small" checked={isComparing} onChange={(e) => setIsComparing(e.target.checked)} color="primary" />}
+            label={<Typography variant="body2" sx={{ fontWeight: 600 }}>Comparison Mode</Typography>}
+          />
+          
+          {!isComparing ? (
+            <FormControl fullWidth size="small">
+              <InputLabel>Logic Core</InputLabel>
+              <Select 
+                value={algorithm} label="Logic Core"
+                onChange={(e) => setAlgorithm(e.target.value as Algorithm)}
+              >
+                <MenuItem value="bfs">Breadth First Search</MenuItem>
+                <MenuItem value="dfs">Depth First Search</MenuItem>
+              </Select>
+            </FormControl>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Pane A</InputLabel>
+                <Select 
+                  value={compAlgos[0]} label="Pane A"
+                  onChange={(e) => setCompAlgos([e.target.value as Algorithm, compAlgos[1]])}
+                >
+                   <MenuItem value="bfs">BFS</MenuItem>
+                   <MenuItem value="dfs">DFS</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Pane B</InputLabel>
+                <Select 
+                  value={compAlgos[1]} label="Pane B"
+                  onChange={(e) => setCompAlgos([compAlgos[0], e.target.value as Algorithm])}
+                >
+                   <MenuItem value="bfs">BFS</MenuItem>
+                   <MenuItem value="dfs">DFS</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          )}
+        </Box>
+      </Box>
+
+      {/* Reset Controls */}
+      <Box sx={{ mt: 'auto' }}>
+        <Divider sx={{ mb: 2 }} />
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, mb: 1, display: 'block' }}>
+          Manual Overrides
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
+          <Box>
+            <Button 
+              fullWidth variant="outlined" size="small" 
+              onClick={handleReset} disabled={isAnimating}
+              startIcon={<RefreshCw size={14} />}
+            >
+              Reset
+            </Button>
+          </Box>
+          <Box>
+            <Button 
+              fullWidth variant="outlined" size="small" 
+              onClick={clearObstacles} disabled={isAnimating}
+              startIcon={<Trash2 size={14} />}
+            >
+              Clear
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+
+const SidebarHeader: React.FC<{ icon: React.ReactNode; title: string }> = ({ icon, title }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+    <Box sx={{ color: 'primary.main' }}>{icon}</Box>
+    <Typography variant="body2" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
+      {title}
+    </Typography>
+  </Box>
+);
+
+const CoordInputBlock: React.FC<{
+  point: [number, number];
+  disabled: boolean;
+  onChange: (r: number, c: number) => void;
+}> = ({ point, disabled, onChange }) => (
+  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
+    <Box>
+      <TextField 
+        label="Lng (X)" size="small" fullWidth value={point[1]} 
+        onChange={(e) => onChange(point[0], Number(e.target.value))}
+        type="number"
+        disabled={disabled}
+        sx={{ '& .MuiInputBase-input': { fontFamily: 'monospace', fontSize: '13px' } }}
+      />
+    </Box>
+    <Box>
+      <TextField 
+        label="Lat (Y)" size="small" fullWidth value={point[0]} 
+        onChange={(e) => onChange(Number(e.target.value), point[1])}
+        type="number"
+        disabled={disabled}
+        sx={{ '& .MuiInputBase-input': { fontFamily: 'monospace', fontSize: '13px' } }}
+      />
+    </Box>
+  </Box>
+);
+</file>
+
+<file path="src/hooks/usePathfinding.ts">
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Point, Algorithm, GridDimensions, DraggingNode } from "../types";
+import { solveAlgorithm } from "../services/algorithms";
+
+export const INITIAL_GRID_SIZE = { r: 12, c: 22 };
+export const INITIAL_START: Point = [1, 1];
+export const INITIAL_END: Point = [10, 20];
+
+const generateGrid = (rows: number, cols: number) => {
+  return Array(rows).fill(null).map(() => Array(cols).fill(1));
+};
+
+export const usePathfinding = () => {
+  const [gridDim, setGridDim] = useState<GridDimensions>(INITIAL_GRID_SIZE);
+  const [grid, setGrid] = useState<number[][]>(() => generateGrid(INITIAL_GRID_SIZE.r, INITIAL_GRID_SIZE.c));
+  const [gridR, setGridR] = useState<number[][]>(() => generateGrid(INITIAL_GRID_SIZE.r, INITIAL_GRID_SIZE.c));
+  const [start, setStart] = useState<Point>(INITIAL_START);
+  const [end, setEnd] = useState<Point>(INITIAL_END);
+  const [isSolving, setIsSolving] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawMode, setDrawMode] = useState<0 | 1>(0);
+  const [draggingNode, setDraggingNode] = useState<DraggingNode>(null);
+  const [algorithm, setAlgorithm] = useState<Algorithm>("bfs");
+  const [isComparing, setIsComparing] = useState(false);
+  const [compAlgos, setCompAlgos] = useState<[Algorithm, Algorithm]>(["bfs", "dfs"]);
+  const [robotPos, setRobotPos] = useState<Point>(INITIAL_START);
+  const [robotPosR, setRobotPosR] = useState<Point>(INITIAL_START);
+  const [path, setPath] = useState<Point[]>([]);
+  const [pathR, setPathR] = useState<Point[]>([]);
+  const [animationStep, setAnimationStep] = useState(0);
+
+  const updateGridSize = useCallback((newRows: number, newCols: number) => {
+    const dimR = Math.min(Math.max(5, newRows), 30);
+    const dimC = Math.min(Math.max(5, newCols), 40);
+    
+    setGridDim({ r: dimR, c: dimC });
+    
+    const newGrid = Array(dimR).fill(null).map((_, r) => 
+      Array(dimC).fill(null).map((_, c) => {
+        if (r < grid.length && c < grid[0].length) {
+          return grid[r][c] > 1 ? 1 : grid[r][c];
+        }
+        return 1;
+      })
+    );
+    setGrid(newGrid);
+    setGridR(newGrid);
+
+    const newStart: Point = [Math.min(start[0], dimR - 1), Math.min(start[1], dimC - 1)];
+    const newEnd: Point = [Math.min(end[0], dimR - 1), Math.min(end[1], dimC - 1)];
+
+    if (newStart[0] === newEnd[0] && newStart[1] === newEnd[1]) {
+      if (newEnd[0] > 0) newEnd[0]--; else newEnd[0]++;
+    }
+
+    setStart(newStart);
+    setEnd(newEnd);
+    setRobotPos(newStart);
+    setRobotPosR(newStart);
+    setPath([]);
+    setPathR([]);
+    setAnimationStep(0);
+  }, [grid, start, end]);
+
+  const handleSolve = async () => {
+    if (isAnimating) return;
+    setIsSolving(true);
+    setIsAnimating(true);
+    setAnimationStep(0);
+    setPath([]);
+    setPathR([]);
+    setRobotPos(start);
+    setRobotPosR(start);
+
+    const cleanGrid = grid.map(row => row.map(cell => cell > 1 ? 1 : cell));
+    const algosToRun = isComparing ? compAlgos : [algorithm];
+
+    const leftRes = solveAlgorithm(cleanGrid, start, end, algosToRun[0], true);
+    const rightRes = isComparing ? solveAlgorithm(cleanGrid, start, end, algosToRun[1], true) : null;
+
+    const maxSteps = Math.max(leftRes.visitSequence.length, rightRes?.visitSequence.length || 0);
+
+    for (let i = 0; i < maxSteps; i++) {
+      setAnimationStep(i + 1);
+      
+      if (i < leftRes.visitSequence.length) {
+        const [r, c] = leftRes.visitSequence[i];
+        setGrid(prev => {
+          const next = prev.map(row => [...row]);
+          next[r][c] = leftRes.grid[r][c];
+          return next;
+        });
+        setRobotPos([r, c]);
+      }
+
+      if (rightRes && i < rightRes.visitSequence.length) {
+        const [r, c] = rightRes.visitSequence[i];
+        setGridR(prev => {
+          const next = prev.map(row => [...row]);
+          next[r][c] = rightRes.grid[r][c];
+          return next;
+        });
+        setRobotPosR([r, c]);
+      }
+      
+      const delay = algosToRun.includes("dfs") ? 20 : 10;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    setGrid(leftRes.grid);
+    if (rightRes) setGridR(rightRes.grid);
+    setPath(leftRes.path);
+    if (rightRes) setPathR(rightRes.path);
+
+    const pathL = leftRes.path;
+    const pathRFinal = rightRes ? rightRes.path : [];
+    const finalMaxPath = Math.max(pathL.length, pathRFinal.length);
+    
+    for (let i = 0; i < finalMaxPath; i++) {
+      if (i < pathL.length) setRobotPos(pathL[i]);
+      if (i < pathRFinal.length) setRobotPosR(pathRFinal[i]);
+      await new Promise(resolve => setTimeout(resolve, 80));
+    }
+
+    setIsSolving(false);
+    setIsAnimating(false);
+  };
+
+  const handleReset = useCallback(() => {
+    const newGrid = generateGrid(gridDim.r, gridDim.c);
+    setGrid(newGrid);
+    setGridR(newGrid);
+    setStart(INITIAL_START);
+    setEnd(INITIAL_END);
+    setPath([]);
+    setPathR([]);
+    setRobotPos(INITIAL_START);
+    setRobotPosR(INITIAL_START);
+    setAnimationStep(0);
+  }, [gridDim]);
+
+  const clearObstacles = useCallback(() => {
+    setGrid(prev => prev.map(row => row.map(() => 1)));
+    setGridR(prev => prev.map(row => row.map(() => 1)));
+    setPath([]);
+    setPathR([]);
+  }, []);
+
+  const onMouseDown = (r: number, c: number) => {
+    if (isAnimating) return;
+    if (r === start[0] && c === start[1]) {
+      setDraggingNode("start");
+      return;
+    }
+    if (r === end[0] && c === end[1]) {
+      setDraggingNode("end");
+      return;
+    }
+
+    setIsDrawing(true);
+    const targetMode = grid[r][c] === 0 ? 1 : 0;
+    setDrawMode(targetMode);
+    
+    const newGrid = [...grid];
+    newGrid[r] = [...newGrid[r]];
+    newGrid[r][c] = targetMode;
+    setGrid(newGrid);
+  };
+
+  const onMouseEnter = (r: number, c: number) => {
+    if (isAnimating) return;
+    if (draggingNode === "start") {
+      if (grid[r][c] !== 0 && !(r === end[0] && c === end[1])) {
+        setStart([r, c]);
+        setRobotPos([r, c]);
+      }
+      return;
+    }
+    if (draggingNode === "end") {
+      if (grid[r][c] !== 0 && !(r === start[0] && c === start[1])) {
+        setEnd([r, c]);
+      }
+      return;
+    }
+
+    if (isDrawing) {
+      if ((r === start[0] && c === start[1]) || (r === end[0] && c === end[1])) return;
+      setGrid(prev => {
+        const next = [...prev];
+        next[r] = [...next[r]];
+        next[r][c] = drawMode;
+        return next;
+      });
+    }
+  };
+
+  const onMouseUp = useCallback(() => {
+    setIsDrawing(false);
+    setDraggingNode(null);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("mouseup", onMouseUp);
+    return () => window.removeEventListener("mouseup", onMouseUp);
+  }, [onMouseUp]);
+
+  return {
+    grid, setGrid,
+    gridR, setGridR,
+    start, setStart,
+    end, setEnd,
+    isSolving,
+    isAnimating,
+    gridDim,
+    updateGridSize,
+    handleSolve,
+    handleReset,
+    clearObstacles,
+    onMouseDown,
+    onMouseEnter,
+    updateStart: (r: number, c: number) => {
+      const nr = Math.min(Math.max(0, r), gridDim.r - 1);
+      const nc = Math.min(Math.max(0, c), gridDim.c - 1);
+      if (!(nr === end[0] && nc === end[1])) {
+        setStart([nr, nc]);
+        setRobotPos([nr, nc]);
+      }
+    },
+    updateEnd: (r: number, c: number) => {
+      const nr = Math.min(Math.max(0, r), gridDim.r - 1);
+      const nc = Math.min(Math.max(0, c), gridDim.c - 1);
+      if (!(nr === start[0] && nc === start[1])) {
+        setEnd([nr, nc]);
+      }
+    },
+    algorithm, setAlgorithm,
+    isComparing, setIsComparing,
+    compAlgos, setCompAlgos,
+    robotPos, robotPosR,
+    path, pathR,
+    animationStep
+  };
+};
+</file>
+
+<file path="src/services/algorithms.ts">
+import { Point, SolveResponse, Algorithm } from "../types";
+
+const DIRECTIONS: Point[] = [
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1],
+];
+
+class FastQueue<T> {
+  private items: T[] = [];
+  private head = 0;
+  
+  push(item: T) {
+    this.items.push(item);
+  }
+  
+  shift(): T | undefined {
+    if (this.head < this.items.length) {
+      return this.items[this.head++];
+    }
+    return undefined;
+  }
+  
+  get length() {
+    return this.items.length - this.head;
+  }
+}
+
+const dfsSolve = (
+  currentGrid: number[][],
+  rCount: number,
+  cCount: number,
+  source: Point,
+  target: Point,
+  resultGrid: number[][],
+  fromEnd: boolean
+): { visitSequence: Point[], path: Point[] } => {
+  const visited = Array(rCount).fill(0).map(() => new Uint8Array(cCount));
+  const visitSequence: Point[] = [];
+  let path: Point[] = [];
+  let visitCount = 1;
+  const currentPath: Point[] = [];
+
+  const dfsVisit = (r: number, c: number): boolean => {
+    if (visited[r][c]) return false;
+
+    visited[r][c] = 1;
+    visitSequence.push([r, c]);
+    currentPath.push([r, c]);
+    resultGrid[r][c] = ++visitCount;
+
+    if (r === target[0] && c === target[1]) {
+      path = fromEnd ? [...currentPath].reverse() : [...currentPath];
+      return true;
+    }
+
+    for (let i = 0; i < DIRECTIONS.length; i++) {
+        const dr = DIRECTIONS[i][0];
+        const dc = DIRECTIONS[i][1];
+      const nr = r + dr;
+      const nc = c + dc;
+      if (
+        nr >= 0 && nr < rCount &&
+        nc >= 0 && nc < cCount &&
+        currentGrid[nr][nc] !== 0 &&
+        !visited[nr][nc]
+      ) {
+        if (dfsVisit(nr, nc)) return true;
+        // Backtracking visual
+        visitSequence.push([r, c]);
+      }
+    }
+    currentPath.pop();
+    return false;
+  };
+
+  dfsVisit(source[0], source[1]);
+  return { visitSequence, path };
+};
+
+const bfsSolve = (
+  currentGrid: number[][],
+  rCount: number,
+  cCount: number,
+  source: Point,
+  target: Point,
+  resultGrid: number[][],
+  fromEnd: boolean
+): { visitSequence: Point[], path: Point[] } => {
+  const visited = Array(rCount).fill(0).map(() => new Uint8Array(cCount));
+  const visitSequence: Point[] = [];
+  let path: Point[] = [];
+  
+  type QueueItem = [number, number, number]; // r, c, distance
+  const queue = new FastQueue<QueueItem>();
+  
+  queue.push([source[0], source[1], 2]);
+  visited[source[0]][source[1]] = 1;
+  resultGrid[source[0]][source[1]] = 2;
+  
+  const parentMap = Array(rCount).fill(null).map(() => Array<Point | null>(cCount).fill(null));
+
+  while (queue.length > 0) {
+    const item = queue.shift()!;
+    const [r, c, d] = item;
+    
+    visitSequence.push([r, c]);
+    resultGrid[r][c] = d;
+
+    if (r === target[0] && c === target[1]) {
+      const rawPath: Point[] = [];
+      let currR = r;
+      let currC = c;
+      
+      while (currR !== source[0] || currC !== source[1]) {
+        rawPath.push([currR, currC]);
+        const p = parentMap[currR][currC]!;
+        currR = p[0];
+        currC = p[1];
+      }
+      rawPath.push([source[0], source[1]]);
+      rawPath.reverse(); // Backwards from target, so reversing makes it source -> target
+      
+      path = fromEnd ? rawPath.reverse() : rawPath; 
+      break;
+    }
+
+    for (let i = 0; i < DIRECTIONS.length; i++) {
+        const dr = DIRECTIONS[i][0];
+        const dc = DIRECTIONS[i][1];
+      const nr = r + dr;
+      const nc = c + dc;
+      if (
+        nr >= 0 && nr < rCount &&
+        nc >= 0 && nc < cCount &&
+        currentGrid[nr][nc] !== 0 &&
+        !visited[nr][nc]
+      ) {
+        visited[nr][nc] = 1;
+        parentMap[nr][nc] = [r, c];
+        queue.push([nr, nc, d + 1]);
+      }
+    }
+  }
+  
+  return { visitSequence, path };
+};
+
+export const solveAlgorithm = (
+  currentGrid: number[][],
+  startPoint: Point,
+  endPoint: Point,
+  algo: Algorithm,
+  fromEnd: boolean
+): SolveResponse => {
+  const rCount = currentGrid.length;
+  const cCount = currentGrid[0].length;
+  const resultGrid: number[][] = currentGrid.map((row) =>
+    row.map((cell) => (cell === 0 ? 0 : 1))
+  );
+
+  const source = fromEnd ? endPoint : startPoint;
+  const target = fromEnd ? startPoint : endPoint;
+
+  if (algo === "dfs") {
+    const { visitSequence, path } = dfsSolve(currentGrid, rCount, cCount, source, target, resultGrid, fromEnd);
+    return { grid: resultGrid, visitSequence, path };
+  } else {
+    const { visitSequence, path } = bfsSolve(currentGrid, rCount, cCount, source, target, resultGrid, fromEnd);
+    return { grid: resultGrid, visitSequence, path };
+  }
+};
+</file>
+
+<file path="src/App.tsx">
+import React, { useState, useMemo, useCallback } from "react";
+import { 
+  ThemeProvider, 
+  CssBaseline, 
+  Box, 
+  Drawer, 
+  useMediaQuery,
+  useTheme as useMuiTheme
+} from "@mui/material";
+import { AnimatePresence, motion } from "motion/react";
+import { getTheme } from "./theme";
+import { usePathfinding } from "./hooks/usePathfinding";
+import { Header } from "./components/Header";
+import { Sidebar } from "./components/Sidebar";
+import { Grid } from "./components/Grid";
+import { Legend } from "./components/Legend";
+import { ThemeMode } from "./types";
+
+const noop = () => {};
+
+const App: React.FC = () => {
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+    const saved = localStorage.getItem("themeMode");
+    return (saved as ThemeMode) || "dark";
+  });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  const theme = useMemo(() => getTheme(themeMode), [themeMode]);
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+
+  const pathfinding = usePathfinding();
+
+  const toggleTheme = useCallback(() => {
+    setThemeMode((prev) => {
+      const newMode = prev === "dark" ? "light" : "dark";
+      localStorage.setItem("themeMode", newMode);
+      return newMode;
+    });
+  }, []);
+
+  const toggleSidebar = useCallback(() => setSidebarOpen(prev => !prev), []);
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", bgcolor: "background.default", overflow: "hidden" }}>
+        
+        <Header 
+          theme={themeMode}
+          toggleTheme={toggleTheme}
+          isSolving={pathfinding.isSolving}
+          isAnimating={pathfinding.isAnimating}
+          algorithm={pathfinding.algorithm}
+          handleSolve={pathfinding.handleSolve}
+          toggleSidebar={toggleSidebar}
+        />
+
+        <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
+          {/* Sidebar drawer for mobile/tablet, persistent for desktop */}
+          <Drawer
+            variant={isLargeScreen ? "permanent" : "temporary"}
+            open={isLargeScreen || sidebarOpen}
+            onClose={toggleSidebar}
+            sx={{
+              width: 340,
+              flexShrink: 0,
+              zIndex: (theme) => theme.zIndex.drawer,
+              "& .MuiDrawer-paper": {
+                width: 340,
+                position: isLargeScreen ? "static" : "fixed",
+                boxSizing: "border-box",
+                bgcolor: "background.paper",
+                borderRight: "1px solid",
+                borderColor: "divider",
+                boxShadow: isLargeScreen ? "none" : 10,
+                backgroundImage: "none"
+              },
+            }}
+          >
+            <Box sx={{ height: 60, display: isLargeScreen ? "none" : "block" }} /> {/* Spacer for header */}
+            <Sidebar 
+              gridDim={pathfinding.gridDim}
+              updateGridSize={pathfinding.updateGridSize}
+              start={pathfinding.start}
+              updateStart={pathfinding.updateStart}
+              end={pathfinding.end}
+              updateEnd={pathfinding.updateEnd}
+              algorithm={pathfinding.algorithm}
+              setAlgorithm={pathfinding.setAlgorithm}
+              isComparing={pathfinding.isComparing}
+              setIsComparing={pathfinding.setIsComparing}
+              compAlgos={pathfinding.compAlgos}
+              setCompAlgos={pathfinding.setCompAlgos}
+              handleReset={pathfinding.handleReset}
+              clearObstacles={pathfinding.clearObstacles}
+              isAnimating={pathfinding.isAnimating}
+            />
+          </Drawer>
+
+          <Box component="main" sx={{ flexGrow: 1, display: "flex", flexDirection: "column", overflow: "auto" }}>
+            <Box sx={{ minHeight: "100%", width: "100%", display: "flex", flexDirection: "column", alignItems: "center", p: { xs: 2, md: 4 } }}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key="visualizer-content"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  style={{ width: "100%" }}
+                >
+                  <Box sx={{ 
+                    display: "flex", 
+                    flexDirection: { xs: "column", xl: "row" }, 
+                    gap: 8, 
+                    justifyContent: "center", 
+                    alignItems: "flex-start",
+                    mt: { xs: 4, md: 10 }
+                  }}>
+                    <Grid 
+                      grid={pathfinding.grid}
+                      path={pathfinding.path}
+                      start={pathfinding.start}
+                      end={pathfinding.end}
+                      robotPos={pathfinding.robotPos}
+                      onMouseDown={pathfinding.onMouseDown}
+                      onMouseEnter={pathfinding.onMouseEnter}
+                      title={pathfinding.isComparing ? `Pane A: ${pathfinding.compAlgos[0].toUpperCase()}` : undefined}
+                    />
+
+                    {pathfinding.isComparing && (
+                      <Grid 
+                        grid={pathfinding.gridR}
+                        path={pathfinding.pathR}
+                        start={pathfinding.start}
+                        end={pathfinding.end}
+                        robotPos={pathfinding.robotPosR}
+                        onMouseDown={pathfinding.onMouseDown}
+                        onMouseEnter={noop} // Interaction only on Pane A for obstacles
+                        title={`Pane B: ${pathfinding.compAlgos[1].toUpperCase()}`}
+                      />
+                    )}
+                  </Box>
+                </motion.div>
+              </AnimatePresence>
+
+              <Legend />
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+    </ThemeProvider>
+  );
+};
+
+export default App;
+</file>
+
+<file path="src/index.css">
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+:root {
+  --cell-size: 38px;
+  --cell-gap: 1px;
+  --color-accent: #3b82f6;
+  --color-start: #ef4444;
+  --color-target: #22c55e;
+  --color-obstacle: #020617;
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --cell-size: 32px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --cell-size: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --cell-size: 24px;
+  }
+}
+
+@layer base {
+  .bg-start { background-color: var(--color-start); }
+  .bg-target { background-color: var(--color-target); }
+  .bg-obstacle { background-color: var(--color-obstacle); }
+
+  body {
+    background-image: 
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.02) 1px, transparent 0);
+    background-size: 24px 24px;
+    background-attachment: fixed;
+  }
+}
+</file>
+
+<file path="src/main.tsx">
+import {StrictMode} from 'react';
+import {createRoot} from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
+</file>
+
+<file path="src/theme.ts">
+import { createTheme } from '@mui/material/styles';
+
+export const getTheme = (mode: 'light' | 'dark') => createTheme({
+  palette: {
+    mode,
+    primary: {
+      main: '#3b82f6',
+    },
+    secondary: {
+      main: '#10b981',
+    },
+    background: {
+      default: mode === 'dark' ? '#0b0e14' : '#f8fafc',
+      paper: mode === 'dark' ? '#151921' : '#ffffff',
+    },
+    text: {
+      primary: mode === 'dark' ? '#e2e8f0' : '#0f172a',
+      secondary: mode === 'dark' ? '#94a3b8' : '#64748b',
+    },
+    divider: mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
+  },
+  typography: {
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    h1: { fontSize: '2rem', fontWeight: 700 },
+    h2: { fontSize: '1.5rem', fontWeight: 600 },
+    h3: { fontSize: '1.25rem', fontWeight: 600 },
+    button: { textTransform: 'none', fontWeight: 600 },
+    caption: { fontSize: '0.75rem', letterSpacing: '0.05em', textTransform: 'uppercase' },
+  },
+  shape: {
+    borderRadius: 8,
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: 'none',
+          },
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'none',
+          border: '1px solid',
+          borderColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+        },
+      },
+    },
+  },
+});
+</file>
+
+<file path="src/types.ts">
+export type Point = [number, number];
+export type Algorithm = "bfs" | "dfs";
+export type ThemeMode = "dark" | "light";
+export type DraggingNode = "start" | "end" | null;
+
+export interface SolveResponse {
+  grid: number[][];
+  visitSequence: Point[];
+  path: Point[];
+}
+
+export interface SolveRequest {
+  grid: number[][];
+  start: Point;
+  end: Point;
+  algorithm: Algorithm;
+}
+
+export interface GridDimensions {
+  r: number;
+  c: number;
+}
+</file>
+
+<file path=".env.example">
+# GEMINI_API_KEY: Required for Gemini AI API calls.
+# AI Studio automatically injects this at runtime from user secrets.
+# Users configure this via the Secrets panel in the AI Studio UI.
+GEMINI_API_KEY="MY_GEMINI_API_KEY"
+
+# APP_URL: The URL where this applet is hosted.
+# AI Studio automatically injects this at runtime with the Cloud Run service URL.
+# Used for self-referential links, OAuth callbacks, and API endpoints.
+APP_URL="MY_APP_URL"
+</file>
+
+<file path=".gitignore">
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+</file>
+
+<file path="index.html">
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+</file>
+
+<file path="metadata.json">
+{
+  "name": "Remix: Pathfinding Visualizer",
+  "description": "A full-stack pathfinding visualizer using BFS/Flood Fill with real-time grid interaction and heatmap visualization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "react-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf dist",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@google/genai": "^1.29.0",
+    "@mui/icons-material": "^9.0.0",
+    "@mui/material": "^9.0.0",
+    "@tailwindcss/vite": "^4.1.14",
+    "@vitejs/plugin-react": "^5.0.4",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "vite": "^6.2.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "autoprefixer": "^10.4.21",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
+</file>
+
+<file path="README.md">
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
+
+# Run and deploy your AI Studio app
+
+This contains everything you need to run your app locally.
+
+View your app in AI Studio: https://ai.studio/apps/17930fa5-5bab-4754-8aeb-3d943e4e39c7
+
+## Run Locally
+
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "ESNext",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    },
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  }
+}
+</file>
+
+<file path="vite.config.ts">
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import {defineConfig, loadEnv} from 'vite';
+
+export default defineConfig(({mode}) => {
+  const env = loadEnv(mode, '.', '');
+  return {
+    plugins: [react(), tailwindcss()],
+    define: {
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+    },
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '.'),
+      },
+    },
+    server: {
+      // HMR is disabled in AI Studio via DISABLE_HMR env var.
+      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      hmr: process.env.DISABLE_HMR !== 'true',
+    },
+  };
+});
+</file>
+
+</files>

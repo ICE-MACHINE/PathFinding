@@ -1,0 +1,6 @@
+{
+  "name": "Remix: Pathfinding Visualizer",
+  "description": "A full-stack pathfinding visualizer using BFS/Flood Fill with real-time grid interaction and heatmap visualization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
